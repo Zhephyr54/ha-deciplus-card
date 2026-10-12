@@ -31,7 +31,7 @@ const T = {
     confirm: "Confirmer l'annulation", keep: "Garder",
     agenda: "Agenda", day: "Jour", week: "Semaine", month: "Mois", today: "Aujourd'hui",
     filters: "Filtres", mine: "Mes séances", all: "Tout", allActivities: "Toutes", statuses: "Statuts", activities: "Activités",
-    bookings: "Réservations", blockedNow: "Réservation bloquée", blockedShort: "bloquée",
+    bookings: "Réservations", quotaReached: "Quota atteint", blockedNow: "Réservation impossible", blockedShort: "bloquée",
     places: "places", position: "n°", opensOn: "Ouvre le", atOpening: "à l'ouverture",
     quotaWarn: "quota atteint à l'ouverture, réservée dès qu'une place se libère",
     blockedRetry: "bloquée, nouvel essai à chaque rafraîchissement",
@@ -41,7 +41,10 @@ const T = {
     emptyFiltered: "Aucune séance avec ces filtres", resetFilters: "Réinitialiser les filtres",
     absentActivity: "Activité absente du planning chargé : le filtre l'ignore",
     noDevice: "Choisissez le club (appareil Xplor Deciplus) dans la configuration de la carte.",
-    done: { book: "Réservé", queue: "Inscrit en liste d'attente", prebook: "Pré-réservé", cancel: "Annulé" },
+    done: {
+      book: "Réservé", queue: "Inscrit en liste d'attente", prebook: "Pré-réservé", cancel: "Annulé",
+      booked: "Réservé", waiting_list: "Inscrit en liste d'attente", scheduled: "Pré-réservé",
+    },
   },
   en: {
     booked: "Booked", prebooked: "Pre-booked", waiting: "Waiting list", available: "Available",
@@ -50,7 +53,7 @@ const T = {
     confirm: "Confirm cancellation", keep: "Keep",
     agenda: "Agenda", day: "Day", week: "Week", month: "Month", today: "Today",
     filters: "Filters", mine: "Mine", all: "All", allActivities: "All", statuses: "Status", activities: "Activities",
-    bookings: "Bookings", blockedNow: "Booking blocked", blockedShort: "blocked",
+    bookings: "Bookings", quotaReached: "Quota reached", blockedNow: "Booking refused", blockedShort: "blocked",
     places: "places", position: "#", opensOn: "Opens", atOpening: "at the opening",
     quotaWarn: "quota reached at the opening, booked as soon as a slot frees",
     blockedRetry: "blocked, retried at every refresh",
@@ -60,7 +63,10 @@ const T = {
     emptyFiltered: "No session with these filters", resetFilters: "Reset filters",
     absentActivity: "Activity not in the loaded planning: the filter ignores it",
     noDevice: "Pick the club (Xplor Deciplus device) in the card configuration.",
-    done: { book: "Booked", queue: "Joined the waiting list", prebook: "Pre-booked", cancel: "Cancelled" },
+    done: {
+      book: "Booked", queue: "Joined the waiting list", prebook: "Pre-booked", cancel: "Cancelled",
+      booked: "Booked", waiting_list: "Joined the waiting list", scheduled: "Pre-booked",
+    },
   },
 };
 
@@ -328,12 +334,17 @@ class DeciplusCard extends HTMLElement {
     this._render();
     const target = { device_id: this._config.device };
     try {
+      let outcome = action;
       if (action === "cancel") {
         await this._hass.callService("deciplus", "cancel_booking", { session_id: id }, target);
       } else {
-        await this._hass.callService("deciplus", "book_session", { session_id: id, schedule: true, waiting_list_fallback: true }, target);
+        // the toast says what really happened: a "book" can end on the waiting list
+        const res = await this._hass.callService(
+          "deciplus", "book_session", { session_id: id, schedule: true, waiting_list_fallback: true }, target, true, true,
+        );
+        outcome = (res && res.response && res.response.result) || action;
       }
-      this._toast(this._t.done[action]);
+      this._toast(this._t.done[outcome] || this._t.done[action]);
     } catch (err) {
       // HA already shows the translated refusal (notifyOnError); keep the row open to retry
     } finally {
@@ -425,7 +436,6 @@ class DeciplusCard extends HTMLElement {
   }
 
   _group(rows, from, to, mode) {
-    const t = this._t;
     const byDay = new Map();
     for (const r of rows) {
       if (r._start < from || r._start >= to) continue;
@@ -536,13 +546,15 @@ class DeciplusCard extends HTMLElement {
   _quota() {
     const t = this._t;
     const q = this._feed.quota;
-    const blocked = q.blocked && q.blocked.length;
-    const tip = blocked ? (q.blocked || []).join(", ") : (q.quota ? "" : t.quotaUnknown);
-    return `<div class="quota ${blocked ? "blocked" : ""}" title="${esc(tip)}">
-      ${blocked ? `<ha-icon icon="mdi:alert-circle"></ha-icon>` : ""}
-      ${esc(t.bookings)} : <b>${q.held} / ${q.quota || "?"}</b>
-      ${q.waiting_list ? `<span class="sub">(${q.bookings} + ${q.waiting_list} ${esc(t.waiting.toLowerCase())})</span>` : ""}
-      ${blocked ? `<span class="sub">· ${esc(t.blockedNow)}</span>` : ""}
+    const blocked = q.blocked || [];
+    const reason = !blocked.length ? "" : (blocked.includes("MEMBER_MAX_BOOKING_QUOTA_REACHED") ? t.quotaReached : t.blockedNow);
+    const tip = blocked.length ? blocked.join(", ") : (q.quota ? "" : t.quotaUnknown);
+    // each piece stays whole; on a phone the line wraps between pieces
+    return `<div class="quota ${blocked.length ? "blocked" : ""}" title="${esc(tip)}">
+      ${blocked.length ? `<ha-icon icon="mdi:alert-circle"></ha-icon>` : ""}
+      <span class="piece">${esc(t.bookings)} : <b>${q.held} / ${q.quota || "?"}</b></span>
+      ${q.waiting_list ? `<span class="piece sub">(${q.bookings} + ${q.waiting_list} ${esc(t.waiting.toLowerCase())})</span>` : ""}
+      ${reason ? `<span class="piece reason">${esc(reason)}</span>` : ""}
     </div>`;
   }
 
@@ -581,7 +593,7 @@ class DeciplusCard extends HTMLElement {
 const STYLE = `
   :host {
     --deciplus-booked-color: var(--success-color, #43a047);
-    --deciplus-prebooked-color: var(--info-color, #039be5);
+    --deciplus-prebooked-color: #8e24aa; /* the theme's info colour is the primary blue: same as available */
     --deciplus-waiting-color: var(--warning-color, #fb8c00);
     --deciplus-available-color: var(--primary-color, #03a9f4);
     --deciplus-full-color: var(--error-color, #e53935);
@@ -591,9 +603,11 @@ const STYLE = `
   }
   ha-card { overflow: hidden; }
   .card-header { padding: 12px 16px 0; font-size: 1.3em; font-weight: 400; margin: 0; }
-  .quota { display: flex; align-items: center; gap: 6px; padding: 8px 16px 0; color: var(--secondary-text-color); font-size: 0.95em; }
+  .quota { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 8px 16px 0; color: var(--secondary-text-color); font-size: 0.95em; }
   .quota.blocked { color: var(--error-color); }
+  .quota .piece { white-space: nowrap; }
   .quota .sub { font-size: 0.85em; }
+  .quota .reason { font-weight: 500; }
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 12px; }
   .nav { display: flex; align-items: center; gap: 2px; }
   .nav .label { margin-left: 8px; font-weight: 500; text-transform: capitalize; }

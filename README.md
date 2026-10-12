@@ -52,8 +52,9 @@ immediate and reversible.
 
 The header shows `Réservations : 5 / 6`, the number the club's quota applies to (bookings and
 waiting-list entries together) against the limit the integration has learned, `5 / ?` until a
-refusal has taught it. Red when the club would refuse you a booking right now, with the
-reasons on hover.
+refusal has taught it. Red with `Quota atteint` when the quota is the reason the club would
+refuse you right now, `Réservation impossible` for another rule (unpaid, blacklisted…), the
+Deciplus codes on hover.
 
 Filters (funnel button): status chips with the shortcuts _Mes séances_ and _Tout_, and one
 chip per activity found in the planning with a _Toutes_ shortcut. With every activity chip
