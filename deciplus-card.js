@@ -33,7 +33,7 @@ const T = {
     filters: "Filtres", mine: "Mes séances", all: "Tout", allActivities: "Toutes", statuses: "Statuts", activities: "Activités",
     bookings: "Réservations", quotaReached: "Quota atteint", blockedNow: "Réservation impossible", blockedShort: "bloquée",
     places: "places", position: "n°", opensOn: "Ouvre le", atOpening: "à l'ouverture",
-    quotaWarn: "quota atteint à l'ouverture, réservée dès qu'une place se libère",
+    quotaWarn: "Quota atteint à l'ouverture, réservée dès qu'une place se libère",
     blockedRetry: "bloquée, nouvel essai à chaque rafraîchissement",
     penaltyAfter: "Pénalité si annulation après le", waitingList: "liste d'attente",
     horizon: "Planning chargé jusqu'au", empty: "Aucune séance", loading: "Connexion au club…",
@@ -55,7 +55,7 @@ const T = {
     filters: "Filters", mine: "Mine", all: "All", allActivities: "All", statuses: "Status", activities: "Activities",
     bookings: "Bookings", quotaReached: "Quota reached", blockedNow: "Booking refused", blockedShort: "blocked",
     places: "places", position: "#", opensOn: "Opens", atOpening: "at the opening",
-    quotaWarn: "quota reached at the opening, booked as soon as a slot frees",
+    quotaWarn: "Quota reached at the opening, booked as soon as a slot frees",
     blockedRetry: "blocked, retried at every refresh",
     penaltyAfter: "Penalty if cancelled after", waitingList: "waiting list",
     horizon: "Planning loaded until", empty: "No session", loading: "Connecting to the club…",
@@ -674,8 +674,8 @@ const STYLE = `
   .mcell.other { opacity: 0.35; }
   .mcell.today { border-color: var(--primary-color); }
   .mnum { font-size: 0.85em; }
-  .dots { display: flex; align-items: center; gap: 3px; margin-top: 2px; min-height: 8px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--chip-color); display: inline-block; }
+  .dots { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin-top: 2px; min-height: 8px; }
+  .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--chip-color); display: inline-block; }
   .mcount { font-size: 0.7em; color: var(--secondary-text-color); margin-left: 2px; }
   .mev { font-size: 0.72em; line-height: 1.3; margin-top: 2px; padding-left: 4px; border-left: 3px solid var(--chip-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mev .mtime { font-weight: 400; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
